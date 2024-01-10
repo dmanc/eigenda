@@ -32,6 +32,7 @@ type MetricsConfig struct {
 
 type EncodingStreamerMetrics struct {
 	EncodedBlobs *prometheus.GaugeVec
+	Metadata     *prometheus.GaugeVec
 }
 
 type Metrics struct {
@@ -64,6 +65,14 @@ func NewMetrics(httpPort string, logger common.Logger) *Metrics {
 				Help:      "number and size of all encoded blobs",
 			},
 			[]string{"type"},
+		),
+		Metadata: promauto.With(reg).NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "metadata",
+				Help:      "number of metadata",
+			},
+			[]string{"status"},
 		),
 	}
 
@@ -180,4 +189,8 @@ func (g *Metrics) Start(ctx context.Context) {
 func (e *EncodingStreamerMetrics) UpdateEncodedBlobs(count int, size uint64) {
 	e.EncodedBlobs.WithLabelValues("size").Set(float64(size))
 	e.EncodedBlobs.WithLabelValues("number").Set(float64(count))
+}
+
+func (g *EncodingStreamerMetrics) UpdateMetadataCount(count int, status string) {
+	g.Metadata.WithLabelValues(status).Set(float64(count))
 }

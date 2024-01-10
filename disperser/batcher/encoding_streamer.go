@@ -179,6 +179,8 @@ func (e *EncodingStreamer) RequestEncoding(ctx context.Context, encoderChan chan
 	if err != nil {
 		return fmt.Errorf("error getting blob metadatas: %w", err)
 	}
+	e.metrics.UpdateMetadataCount(len(metadatas), disperser.Processing.String())
+
 	if len(metadatas) == 0 {
 		e.logger.Info("no new metadatas to encode")
 		return nil
