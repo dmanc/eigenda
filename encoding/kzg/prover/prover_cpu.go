@@ -15,6 +15,7 @@ import (
 	"github.com/Layr-Labs/eigenda/encoding/rs"
 	rs_cpu "github.com/Layr-Labs/eigenda/encoding/rs/cpu"
 	"github.com/consensys/gnark-crypto/ecc/bn254"
+	gnark_fft "github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 
 	_ "go.uber.org/automaxprocs"
 )
@@ -58,6 +59,8 @@ func (g *Prover) newProver(params encoding.EncodingParams) (*ParametrizedProver,
 	}
 	fs := fft.NewFFTSettings(n)
 
+	gnarkFs := gnark_fft.NewDomain(uint64(encoder.NumEvaluations()))
+
 	ks, err := kzg.NewKZGSettings(fs, g.Srs)
 	if err != nil {
 		return nil, err
@@ -66,11 +69,14 @@ func (g *Prover) newProver(params encoding.EncodingParams) (*ParametrizedProver,
 	t := uint8(math.Log2(float64(2 * encoder.NumChunks)))
 	sfs := fft.NewFFTSettings(t)
 
+	gnarkSFs := gnark_fft.NewDomain(uint64(2 * encoder.NumChunks))
 	// Set KZG Prover CPU computer
 	computer := &kzg_prover_cpu.KzgCpuProofDevice{
 		Fs:         fs,
+		GnarkFs:    gnarkFs,
 		FFTPointsT: fftPointsT,
 		SFs:        sfs,
+		GnarkSFs:   gnarkSFs,
 		Srs:        g.Srs,
 		G2Trailing: g.G2Trailing,
 		KzgConfig:  g.KzgConfig,
@@ -79,6 +85,7 @@ func (g *Prover) newProver(params encoding.EncodingParams) (*ParametrizedProver,
 	// Set RS CPU computer
 	RsComputeDevice := &rs_cpu.RsCpuComputeDevice{
 		Fs:             fs,
+		GnarkFs:        gnarkFs,
 		EncodingParams: params,
 	}
 	encoder.Computer = RsComputeDevice

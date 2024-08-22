@@ -3,10 +3,10 @@ package toeplitz_test
 import (
 	"testing"
 
-	"github.com/Layr-Labs/eigenda/encoding/fft"
 	"github.com/Layr-Labs/eigenda/encoding/utils/toeplitz"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	gnark_fft "github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,8 +16,7 @@ func TestNewCircular(t *testing.T) {
 	v[1].SetInt64(int64(6))
 	v[2].SetInt64(int64(5))
 	v[3].SetInt64(int64(11))
-	fs := fft.NewFFTSettings(4)
-
+	fs := gnark_fft.NewDomain(16)
 	c := toeplitz.NewCircular(v, fs)
 
 	assert.Equal(t, v[0], c.V[0])
@@ -30,7 +29,7 @@ func TestMultiplyCircular_InvalidDimensions(t *testing.T) {
 	v := make([]fr.Element, 2)
 	v[0].SetInt64(int64(7))
 	v[1].SetInt64(int64(11))
-	fs := fft.NewFFTSettings(2)
+	fs := gnark_fft.NewDomain(4)
 
 	c := toeplitz.NewCircular(v, fs)
 

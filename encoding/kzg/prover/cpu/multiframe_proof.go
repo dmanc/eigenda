@@ -11,13 +11,16 @@ import (
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	gnark_fft "github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 )
 
 type KzgCpuProofDevice struct {
 	*kzg.KzgConfig
 	Fs         *fft.FFTSettings
+	GnarkFs    *gnark_fft.Domain
 	FFTPointsT [][]bn254.G1Affine // transpose of FFTPoints
 	SFs        *fft.FFTSettings
+	GnarkSFs   *gnark_fft.Domain
 	Srs        *kzg.SRS
 	G2Trailing []bn254.G2Affine
 }
@@ -197,7 +200,7 @@ func (p *KzgCpuProofDevice) GetSlicesCoeff(polyFr []fr.Element, dimE, j, l uint6
 	}
 
 	// use precompute table
-	tm, err := toeplitz.NewToeplitz(toeV, p.SFs)
+	tm, err := toeplitz.NewToeplitz(toeV, p.GnarkSFs)
 	if err != nil {
 		return nil, err
 	}

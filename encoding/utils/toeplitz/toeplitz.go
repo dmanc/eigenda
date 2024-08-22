@@ -4,9 +4,8 @@ import (
 	"errors"
 	"log"
 
-	"github.com/Layr-Labs/eigenda/encoding/fft"
-
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	gnark_fft "github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 )
 
 // V is ordered as (v_0, .., v_6), so it creates a
@@ -16,19 +15,19 @@ import (
 // v_5 v_6 v_0 v_1
 // v_4 v_5 v_6 v_0
 type Toeplitz struct {
-	V  []fr.Element
-	Fs *fft.FFTSettings
+	V       []fr.Element
+	GnarkFs *gnark_fft.Domain
 }
 
-func NewToeplitz(v []fr.Element, fs *fft.FFTSettings) (*Toeplitz, error) {
+func NewToeplitz(v []fr.Element, gnarkFs *gnark_fft.Domain) (*Toeplitz, error) {
 	if len(v)%2 != 1 {
 		log.Println("num diagonal vector must be odd")
 		return nil, errors.New("num diagonal vector must be odd")
 	}
 
 	return &Toeplitz{
-		V:  v,
-		Fs: fs,
+		V:       v,
+		GnarkFs: gnarkFs,
 	}, nil
 }
 
@@ -39,7 +38,7 @@ func (t *Toeplitz) Multiply(x []fr.Element) ([]fr.Element, error) {
 	cv := t.ExtendCircularVec()
 
 	rv := t.FromColVToRowV(cv)
-	cir := NewCircular(rv, t.Fs)
+	cir := NewCircular(rv, t.GnarkFs)
 
 	xE := make([]fr.Element, len(cv))
 	for i := 0; i < len(x); i++ {
@@ -63,7 +62,7 @@ func (t *Toeplitz) GetFFTCoeff() ([]fr.Element, error) {
 	cv := t.ExtendCircularVec()
 
 	rv := t.FromColVToRowV(cv)
-	cir := NewCircular(rv, t.Fs)
+	cir := NewCircular(rv, t.GnarkFs)
 
 	return cir.GetFFTCoeff()
 }
@@ -72,7 +71,7 @@ func (t *Toeplitz) GetCoeff() ([]fr.Element, error) {
 	cv := t.ExtendCircularVec()
 
 	rv := t.FromColVToRowV(cv)
-	cir := NewCircular(rv, t.Fs)
+	cir := NewCircular(rv, t.GnarkFs)
 
 	return cir.GetCoeff()
 }

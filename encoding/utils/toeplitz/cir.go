@@ -3,19 +3,19 @@ package toeplitz
 import (
 	"errors"
 
-	"github.com/Layr-Labs/eigenda/encoding/fft"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	gnark_fft "github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 )
 
 type Circular struct {
-	V  []fr.Element
-	Fs *fft.FFTSettings
+	V       []fr.Element
+	GnarkFs *gnark_fft.Domain
 }
 
-func NewCircular(v []fr.Element, fs *fft.FFTSettings) *Circular {
+func NewCircular(v []fr.Element, gnarkFs *gnark_fft.Domain) *Circular {
 	return &Circular{
-		V:  v,
-		Fs: fs,
+		V:       v,
+		GnarkFs: gnarkFs,
 	}
 }
 
@@ -31,25 +31,28 @@ func (c *Circular) Multiply(x []fr.Element) ([]fr.Element, error) {
 		colV[i] = c.V[(n-i)%n]
 	}
 
-	y, err := c.Fs.FFT(x, false)
-	if err != nil {
-		return nil, err
-	}
-	v, err := c.Fs.FFT(colV, false)
-	if err != nil {
-		return nil, err
-	}
-	u := make([]fr.Element, n)
-	err = Hadamard(y, v, u)
-	if err != nil {
-		return nil, err
-	}
+	c.GnarkFs.FFT(x, gnark_fft.DIT)
+	gnark_fft.BitReverse(x)
 
-	r, err := c.Fs.FFT(u, true)
+	c.GnarkFs.FFT(colV, gnark_fft.DIT)
+	gnark_fft.BitReverse(colV)
+
+	gnark_fft.BitReverse(x)
+	gnark_fft.BitReverse(colV)
+
+	u := make([]fr.Element, n)
+	err := Hadamard(x, colV, u)
 	if err != nil {
 		return nil, err
 	}
-	return r, nil
+	// gnark_fft.BitReverse(u)
+
+	c.GnarkFs.FFTInverse(u, gnark_fft.DIT)
+
+	// Apply bit-reversal permutation
+	gnark_fft.BitReverse(u)
+
+	return u, nil
 }
 
 // Taking FFT on the circular matrix vector
@@ -61,11 +64,9 @@ func (c *Circular) GetFFTCoeff() ([]fr.Element, error) {
 		colV[i] = c.V[(n-i)%n]
 	}
 
-	out, err := c.Fs.FFT(colV, false)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
+	c.GnarkFs.FFT(colV, gnark_fft.DIT)
+	gnark_fft.BitReverse(colV)
+	return colV, nil
 }
 
 // Taking FFT on the circular matrix vector

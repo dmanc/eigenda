@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	"github.com/Layr-Labs/eigenda/encoding"
-	"github.com/Layr-Labs/eigenda/encoding/fft"
 	"github.com/Layr-Labs/eigenda/encoding/utils/toeplitz"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	gnark_fft "github.com/consensys/gnark-crypto/ecc/bn254/fr/fft"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,7 +27,7 @@ func TestNewToeplitz(t *testing.T) {
 	v[4].SetInt64(int64(3))
 	v[5].SetInt64(int64(8))
 	v[6].SetInt64(int64(1))
-	fs := fft.NewFFTSettings(4)
+	fs := gnark_fft.NewDomain(16)
 
 	toe, err := toeplitz.NewToeplitz(v, fs)
 	require.Nil(t, err)
@@ -44,7 +44,7 @@ func TestNewToeplitz_InvalidSize(t *testing.T) {
 	v := make([]fr.Element, 2)
 	v[0].SetInt64(int64(4))
 	v[1].SetInt64(int64(2))
-	fs := fft.NewFFTSettings(4)
+	fs := gnark_fft.NewDomain(16)
 
 	_, err := toeplitz.NewToeplitz(v, fs)
 	assert.EqualError(t, err, "num diagonal vector must be odd")
@@ -64,7 +64,7 @@ func TestExtendCircularVec(t *testing.T) {
 	v[5].SetInt64(int64(8))
 	v[6].SetInt64(int64(1))
 
-	fs := fft.NewFFTSettings(4)
+	fs := gnark_fft.NewDomain(16)
 	c, err := toeplitz.NewToeplitz(v, fs)
 	require.Nil(t, err)
 
@@ -92,7 +92,7 @@ func TestFromColVToRowV(t *testing.T) {
 	v[5].SetInt64(int64(8))
 	v[6].SetInt64(int64(1))
 
-	fs := fft.NewFFTSettings(4)
+	fs := gnark_fft.NewDomain(16)
 	c, err := toeplitz.NewToeplitz(v, fs)
 	require.Nil(t, err)
 
@@ -130,7 +130,7 @@ func TestMultiplyToeplitz(t *testing.T) {
 	v[5].SetInt64(int64(8))
 	v[6].SetInt64(int64(1))
 
-	fs := fft.NewFFTSettings(4)
+	fs := gnark_fft.NewDomain(16)
 	toe, err := toeplitz.NewToeplitz(v, fs)
 
 	require.Nil(t, err)
