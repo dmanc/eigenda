@@ -8,24 +8,26 @@ import (
 	"github.com/Layr-Labs/eigenda/disperser/batcher"
 	"github.com/Layr-Labs/eigenda/disperser/cmd/batcher/flags"
 	"github.com/Layr-Labs/eigenda/disperser/common/blobstore"
+	"github.com/Layr-Labs/eigenda/disperser/encoder"
 	"github.com/Layr-Labs/eigenda/encoding/kzg"
 	"github.com/Layr-Labs/eigenda/indexer"
 	"github.com/urfave/cli"
 )
 
 type Config struct {
-	BatcherConfig    batcher.Config
-	TimeoutConfig    batcher.TimeoutConfig
-	BlobstoreConfig  blobstore.Config
-	EthClientConfig  geth.EthClientConfig
-	AwsClientConfig  aws.ClientConfig
-	EncoderConfig    kzg.KzgConfig
-	LoggerConfig     common.LoggerConfig
-	MetricsConfig    batcher.MetricsConfig
-	IndexerConfig    indexer.Config
-	KMSKeyConfig     common.KMSKeyConfig
-	ChainStateConfig thegraph.Config
-	UseGraph         bool
+	BatcherConfig     batcher.Config
+	TimeoutConfig     batcher.TimeoutConfig
+	BlobstoreConfig   blobstore.Config
+	EthClientConfig   geth.EthClientConfig
+	AwsClientConfig   aws.ClientConfig
+	EncoderConfig     kzg.KzgConfig
+	EncoderPoolConfig encoder.EncoderPoolConfig
+	LoggerConfig      common.LoggerConfig
+	MetricsConfig     batcher.MetricsConfig
+	IndexerConfig     indexer.Config
+	KMSKeyConfig      common.KMSKeyConfig
+	ChainStateConfig  thegraph.Config
+	UseGraph          bool
 
 	IndexerDataDir string
 
@@ -42,6 +44,13 @@ func NewConfig(ctx *cli.Context) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+
+	encoderPoolConfigFileName := ctx.String(flags.EncoderPoolConfigFileFlag.Name)
+	encoderPoolConfig := encoder.EncoderPoolConfig{}
+	if encoderPoolConfigFileName != "" {
+		encoderPoolConfig, _ = encoder.ReadConfig(encoderPoolConfigFileName)
+	}
+
 	ethClientConfig := geth.ReadEthClientConfig(ctx)
 	kmsConfig := common.ReadKMSKeyConfig(ctx, flags.FlagPrefix)
 	if !kmsConfig.Disable {
@@ -52,10 +61,11 @@ func NewConfig(ctx *cli.Context) (Config, error) {
 			BucketName: ctx.GlobalString(flags.S3BucketNameFlag.Name),
 			TableName:  ctx.GlobalString(flags.DynamoDBTableNameFlag.Name),
 		},
-		EthClientConfig: ethClientConfig,
-		AwsClientConfig: aws.ReadClientConfig(ctx, flags.FlagPrefix),
-		EncoderConfig:   kzg.ReadCLIConfig(ctx),
-		LoggerConfig:    *loggerConfig,
+		EthClientConfig:   ethClientConfig,
+		AwsClientConfig:   aws.ReadClientConfig(ctx, flags.FlagPrefix),
+		EncoderConfig:     kzg.ReadCLIConfig(ctx),
+		EncoderPoolConfig: encoderPoolConfig,
+		LoggerConfig:      *loggerConfig,
 		BatcherConfig: batcher.Config{
 			PullInterval:             ctx.GlobalDuration(flags.PullIntervalFlag.Name),
 			FinalizerInterval:        ctx.GlobalDuration(flags.FinalizerIntervalFlag.Name),

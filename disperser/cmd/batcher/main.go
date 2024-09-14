@@ -229,6 +229,13 @@ func RunBatcher(ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
+	// Initialize encoder pool manager from config
+	encoderPoolManager, err := encoder.CreatePoolManagerFromConfig(config.EncoderPoolConfig)
+	if err != nil {
+		return err
+	}
+
 	finalizer := batcher.NewFinalizer(config.TimeoutConfig.ChainReadTimeout, config.BatcherConfig.FinalizerInterval, queue, client, rpcClient, config.BatcherConfig.MaxNumRetriesPerBlob, 1000, config.BatcherConfig.FinalizerPoolSize, logger, metrics.FinalizerMetrics)
 	txnManager := batcher.NewTxnManager(client, wallet, config.EthClientConfig.NumConfirmations, 20, config.TimeoutConfig.TxnBroadcastTimeout, config.TimeoutConfig.ChainWriteTimeout, logger, metrics.TxnManagerMetrics)
 
@@ -243,7 +250,7 @@ func RunBatcher(ctx *cli.Context) error {
 		// TODO: implement and run batchConfirmer for minibatch
 		return errors.New("minibatch is not supported")
 	} else {
-		batcher, err := batcher.NewBatcher(config.BatcherConfig, config.TimeoutConfig, queue, dispatcher, ics, asgn, encoderClient, agg, client, finalizer, tx, txnManager, logger, metrics, handleBatchLivenessChan)
+		batcher, err := batcher.NewBatcher(config.BatcherConfig, config.TimeoutConfig, queue, dispatcher, ics, asgn, encoderClient, encoderPoolManager, agg, client, finalizer, tx, txnManager, logger, metrics, handleBatchLivenessChan)
 		if err != nil {
 			return err
 		}

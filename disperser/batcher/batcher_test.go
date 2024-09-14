@@ -21,6 +21,7 @@ import (
 	batchermock "github.com/Layr-Labs/eigenda/disperser/batcher/mock"
 	batmock "github.com/Layr-Labs/eigenda/disperser/batcher/mock"
 	"github.com/Layr-Labs/eigenda/disperser/common/inmem"
+	"github.com/Layr-Labs/eigenda/disperser/encoder"
 	dmock "github.com/Layr-Labs/eigenda/disperser/mock"
 	"github.com/Layr-Labs/eigenda/encoding"
 	"github.com/Layr-Labs/eigenda/encoding/kzg"
@@ -124,11 +125,12 @@ func makeBatcher(t *testing.T) (*batcherComponents, *bat.Batcher, func() []time.
 	metrics := bat.NewMetrics("9100", logger)
 
 	encoderClient := disperser.NewLocalEncoderClient(p)
+	encoderPoolManager := &encoder.PoolManager{}
 	finalizer := batchermock.NewFinalizer()
 	ethClient := &cmock.MockEthClient{}
 	txnManager := batmock.NewTxnManager()
 
-	b, err := bat.NewBatcher(config, timeoutConfig, blobStore, dispatcher, cst, asgn, encoderClient, agg, ethClient, finalizer, transactor, txnManager, logger, metrics, handleBatchLivenessChan)
+	b, err := bat.NewBatcher(config, timeoutConfig, blobStore, dispatcher, cst, asgn, encoderClient, encoderPoolManager, agg, ethClient, finalizer, transactor, txnManager, logger, metrics, handleBatchLivenessChan)
 	assert.NoError(t, err)
 
 	var mu sync.Mutex

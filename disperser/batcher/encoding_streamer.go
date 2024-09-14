@@ -11,6 +11,7 @@ import (
 	"github.com/Layr-Labs/eigenda/common"
 	"github.com/Layr-Labs/eigenda/core"
 	"github.com/Layr-Labs/eigenda/disperser"
+	"github.com/Layr-Labs/eigenda/disperser/encoder"
 	"github.com/Layr-Labs/eigenda/encoding"
 	"github.com/Layr-Labs/eigensdk-go/logging"
 	"github.com/wealdtech/go-merkletree/v2"
@@ -63,9 +64,11 @@ type EncodingStreamer struct {
 	Pool                 common.WorkerPool
 	EncodedSizeNotifier  *EncodedSizeNotifier
 
-	blobStore             disperser.BlobStore
-	chainState            core.IndexedChainState
-	encoderClient         disperser.EncoderClient
+	blobStore          disperser.BlobStore
+	chainState         core.IndexedChainState
+	encoderClient      disperser.EncoderClient
+	encoderPoolManager encoder.PoolManager
+
 	assignmentCoordinator core.AssignmentCoordinator
 
 	encodingCtxCancelFuncs []context.CancelFunc
@@ -100,6 +103,7 @@ func NewEncodingStreamer(
 	blobStore disperser.BlobStore,
 	chainState core.IndexedChainState,
 	encoderClient disperser.EncoderClient,
+	encoderPoolManager *encoder.PoolManager,
 	assignmentCoordinator core.AssignmentCoordinator,
 	encodedSizeNotifier *EncodedSizeNotifier,
 	workerPool common.WorkerPool,
@@ -118,6 +122,7 @@ func NewEncodingStreamer(
 		blobStore:              blobStore,
 		chainState:             chainState,
 		encoderClient:          encoderClient,
+		encoderPoolManager:     *encoderPoolManager,
 		assignmentCoordinator:  assignmentCoordinator,
 		encodingCtxCancelFuncs: make([]context.CancelFunc, 0),
 		metrics:                metrics,
@@ -380,12 +385,27 @@ func (e *EncodingStreamer) RequestEncodingForBlob(ctx context.Context, metadata 
 		e.Pool.Submit(func() {
 			defer cancel()
 			start := time.Now()
-			commits, chunks, err := e.encoderClient.EncodeBlob(encodingCtx, blob.Data, res.EncodingParams)
+
+			var commits *encoding.BlobCommitments
+			var chunks *core.ChunksData
+			var err error
+			var encoderClient disperser.EncoderClient
+
+			// Use pool if available
+			if len(e.encoderPoolManager.Pools) != 0 {
+				encoderClient, _, err = e.encoderPoolManager.GetEncoderForSize(uint64(len(blob.Data)))
+				if err != nil {
+					e.sendErrorResult(encoderChan, err, metadata, res.BlobQuorumInfo)
+					e.metrics.ObserveEncodingLatency("failed", res.BlobQuorumInfo.QuorumID, len(blob.Data), float64(time.Since(start).Milliseconds()))
+					return
+				}
+			} else {
+				encoderClient = e.encoderClient
+			}
+
+			commits, chunks, err = encoderClient.EncodeBlob(encodingCtx, blob.Data, res.EncodingParams)
 			if err != nil {
-				encoderChan <- EncodingResultOrStatus{Err: err, EncodingResult: EncodingResult{
-					BlobMetadata:   metadata,
-					BlobQuorumInfo: res.BlobQuorumInfo,
-				}}
+				e.sendErrorResult(encoderChan, err, metadata, res.BlobQuorumInfo)
 				e.metrics.ObserveEncodingLatency("failed", res.BlobQuorumInfo.QuorumID, len(blob.Data), float64(time.Since(start).Milliseconds()))
 				return
 			}
@@ -404,6 +424,17 @@ func (e *EncodingStreamer) RequestEncodingForBlob(ctx context.Context, metadata 
 			e.metrics.ObserveEncodingLatency("success", res.BlobQuorumInfo.QuorumID, len(blob.Data), float64(time.Since(start).Milliseconds()))
 		})
 		e.EncodedBlobstore.PutEncodingRequest(blobKey, res.BlobQuorumInfo.QuorumID)
+	}
+}
+
+// Helper function to send error results
+func (e *EncodingStreamer) sendErrorResult(encoderChan chan<- EncodingResultOrStatus, err error, metadata *disperser.BlobMetadata, blobQuorumInfo *core.BlobQuorumInfo) {
+	encoderChan <- EncodingResultOrStatus{
+		Err: err,
+		EncodingResult: EncodingResult{
+			BlobMetadata:   metadata,
+			BlobQuorumInfo: blobQuorumInfo,
+		},
 	}
 }
 

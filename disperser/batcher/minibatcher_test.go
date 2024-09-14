@@ -15,6 +15,7 @@ import (
 	"github.com/Layr-Labs/eigenda/disperser/batcher"
 	"github.com/Layr-Labs/eigenda/disperser/batcher/inmem"
 	dinmem "github.com/Layr-Labs/eigenda/disperser/common/inmem"
+	"github.com/Layr-Labs/eigenda/disperser/encoder"
 	dmock "github.com/Layr-Labs/eigenda/disperser/mock"
 	"github.com/Layr-Labs/eigensdk-go/logging"
 	"github.com/consensys/gnark-crypto/ecc/bn254"
@@ -85,6 +86,7 @@ func newMinibatcher(t *testing.T, config batcher.MinibatcherConfig) *minibatcher
 	p, err := makeTestProver()
 	assert.NoError(t, err)
 	encoderClient := disperser.NewLocalEncoderClient(p)
+	encoderPoolManager := &encoder.PoolManager{}
 	asgn := &core.StdAssignmentCoordinator{}
 	chainState.On("GetCurrentBlockNumber").Return(initialBlock, nil)
 	metrics := batcher.NewMetrics("9100", logger)
@@ -92,7 +94,7 @@ func newMinibatcher(t *testing.T, config batcher.MinibatcherConfig) *minibatcher
 		make(chan struct{}, 1),
 		10*1024*1024,
 	)
-	encodingStreamer, err := batcher.NewEncodingStreamer(streamerConfig, blobStore, chainState, encoderClient, asgn, trigger, encodingWorkerPool, metrics.EncodingStreamerMetrics, metrics, logger)
+	encodingStreamer, err := batcher.NewEncodingStreamer(streamerConfig, blobStore, chainState, encoderClient, encoderPoolManager, asgn, trigger, encodingWorkerPool, metrics.EncodingStreamerMetrics, metrics, logger)
 	assert.NoError(t, err)
 	ethClient := &cmock.MockEthClient{}
 	pool := workerpool.New(int(config.MaxNumConnections))

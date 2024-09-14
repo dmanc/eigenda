@@ -93,6 +93,12 @@ var (
 		Value:    10 * time.Second,
 		EnvVar:   common.PrefixEnvVar(envVarPrefix, "ENCODING_TIMEOUT"),
 	}
+	EncoderPoolConfigFileFlag = cli.StringFlag{
+		Name:     "encoder-pool-config",
+		Usage:    "path to the encoder pool configuration file",
+		Required: false,
+		EnvVar:   common.PrefixEnvVar(envVarPrefix, "ENCODER_POOL_CONFIG"),
+	}
 	AttestationTimeoutFlag = cli.DurationFlag{
 		Name:     "attestation-timeout",
 		Usage:    "connection timeout from grpc call to DA nodes for attestation",
@@ -256,6 +262,7 @@ var optionalFlags = []cli.Flag{
 	FinalizerIntervalFlag,
 	FinalizerPoolSizeFlag,
 	EncodingRequestQueueSizeFlag,
+	EncoderPoolConfigFileFlag,
 	MaxNumRetriesPerBlobFlag,
 	TargetNumChunksFlag,
 	MaxBlobsToFetchFromStoreFlag,

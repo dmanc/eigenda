@@ -12,6 +12,7 @@ import (
 	"github.com/Layr-Labs/eigenda/common"
 	"github.com/Layr-Labs/eigenda/core"
 	"github.com/Layr-Labs/eigenda/disperser"
+	"github.com/Layr-Labs/eigenda/disperser/encoder"
 	"github.com/Layr-Labs/eigensdk-go/logging"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -96,6 +97,7 @@ func NewBatcher(
 	chainState core.IndexedChainState,
 	assignmentCoordinator core.AssignmentCoordinator,
 	encoderClient disperser.EncoderClient,
+	encoderPoolManager *encoder.PoolManager,
 	aggregator core.SignatureAggregator,
 	ethClient common.EthClient,
 	finalizer Finalizer,
@@ -119,7 +121,7 @@ func NewBatcher(
 		ChainStateTimeout:        timeoutConfig.ChainStateTimeout,
 	}
 	encodingWorkerPool := workerpool.New(config.NumConnections)
-	encodingStreamer, err := NewEncodingStreamer(streamerConfig, queue, chainState, encoderClient, assignmentCoordinator, batchTrigger, encodingWorkerPool, metrics.EncodingStreamerMetrics, metrics, logger)
+	encodingStreamer, err := NewEncodingStreamer(streamerConfig, queue, chainState, encoderClient, encoderPoolManager, assignmentCoordinator, batchTrigger, encodingWorkerPool, metrics.EncodingStreamerMetrics, metrics, logger)
 	if err != nil {
 		return nil, err
 	}

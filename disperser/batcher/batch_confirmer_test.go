@@ -17,6 +17,7 @@ import (
 	batchermock "github.com/Layr-Labs/eigenda/disperser/batcher/mock"
 	batmock "github.com/Layr-Labs/eigenda/disperser/batcher/mock"
 	"github.com/Layr-Labs/eigenda/disperser/common/inmem"
+	"github.com/Layr-Labs/eigenda/disperser/encoder"
 	dmock "github.com/Layr-Labs/eigenda/disperser/mock"
 	"github.com/Layr-Labs/eigenda/encoding"
 	"github.com/Layr-Labs/eigensdk-go/logging"
@@ -63,12 +64,13 @@ func makeBatchConfirmer(t *testing.T) *batchConfirmerComponents {
 	encoderProver, err = makeTestProver()
 	assert.NoError(t, err)
 	encoderClient := disperser.NewLocalEncoderClient(encoderProver)
+	encoderPoolManager := &encoder.PoolManager{}
 	metrics := bat.NewMetrics("9100", logger)
 	trigger := bat.NewEncodedSizeNotifier(
 		make(chan struct{}, 1),
 		10*1024*1024,
 	)
-	encodingStreamer, err := bat.NewEncodingStreamer(streamerConfig, blobStore, mockChainState, encoderClient, assignmentCoordinator, trigger, encodingWorkerPool, metrics.EncodingStreamerMetrics, metrics, logger)
+	encodingStreamer, err := bat.NewEncodingStreamer(streamerConfig, blobStore, mockChainState, encoderClient, encoderPoolManager, assignmentCoordinator, trigger, encodingWorkerPool, metrics.EncodingStreamerMetrics, metrics, logger)
 	assert.NoError(t, err)
 	pool := workerpool.New(int(10))
 	minibatcher, err := bat.NewMinibatcher(bat.MinibatcherConfig{
