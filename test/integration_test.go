@@ -168,12 +168,14 @@ func mustMakeDisperser(t *testing.T, cst core.IndexedChainState, store disperser
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	encoderPoolManager := &encoder.PoolManager{}
 	finalizer := batchermock.NewFinalizer()
 
 	disperserMetrics := disperser.NewMetrics(prometheus.NewRegistry(), "9100", logger)
 	txnManager := batchermock.NewTxnManager()
 
-	batcher, err := batcher.NewBatcher(batcherConfig, timeoutConfig, store, dispatcher, cst, asn, encoderClient, agg, &commonmock.MockEthClient{}, finalizer, transactor, txnManager, logger, batcherMetrics, handleBatchLivenessChan)
+	batcher, err := batcher.NewBatcher(batcherConfig, timeoutConfig, store, dispatcher, cst, asn, encoderClient, encoderPoolManager, agg, &commonmock.MockEthClient{}, finalizer, transactor, txnManager, logger, batcherMetrics, handleBatchLivenessChan)
 	if err != nil {
 		t.Fatal(err)
 	}
