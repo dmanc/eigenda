@@ -2,7 +2,7 @@ package prover
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/Layr-Labs/eigenda/encoding"
@@ -151,14 +151,14 @@ func (g *ParametrizedProver) Encode(inputFr []fr.Element) (*bn254.G1Affine, *bn2
 	}
 	totalProcessingTime := time.Since(encodeStart)
 
-	log.Printf("\n\t\tRS encode     %-v\n\t\tCommiting     %-v\n\t\tLengthCommit  %-v\n\t\tlengthProof   %-v\n\t\tmultiProof    %-v\n\t\tMetaInfo. order  %-v shift %v\n",
-		rsResult.Duration,
-		commitmentResult.Duration,
-		lengthCommitmentResult.Duration,
-		lengthProofResult.Duration,
-		proofsResult.Duration,
-		g.SRSOrder,
-		g.SRSOrder-uint64(len(inputFr)),
+	slog.Info("Encoding process details",
+		"RS_encode_duration", rsResult.Duration,
+		"Commiting_duration", commitmentResult.Duration,
+		"LengthCommit_duration", lengthCommitmentResult.Duration,
+		"lengthProof_duration", lengthProofResult.Duration,
+		"multiProof_duration", proofsResult.Duration,
+		"SRSOrder", g.SRSOrder,
+		"SRSOrder_shift", g.SRSOrder-uint64(len(inputFr)),
 	)
 
 	// assemble frames
@@ -171,7 +171,8 @@ func (g *ParametrizedProver) Encode(inputFr []fr.Element) (*bn254.G1Affine, *bn2
 	}
 
 	if g.Verbose {
-		log.Printf("Total encoding took      %v\n", totalProcessingTime)
+		slog.Info("Total encoding duration", "duration", totalProcessingTime)
 	}
+
 	return &commitmentResult.Commitment, &lengthCommitmentResult.LengthCommitment, &lengthProofResult.LengthProof, kzgFrames, rsResult.Indices, nil
 }
