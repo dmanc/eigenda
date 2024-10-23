@@ -2,7 +2,6 @@ package prover
 
 import (
 	"fmt"
-	"log"
 	"log/slog"
 	"time"
 
@@ -67,7 +66,6 @@ func (g *ParametrizedProver) EncodeBytes(inputBytes []byte) (*bn254.G1Affine, *b
 }
 
 func (g *ParametrizedProver) Encode(inputFr []fr.Element) (*bn254.G1Affine, *bn254.G2Affine, *bn254.G2Affine, []encoding.Frame, []uint32, error) {
-
 	if len(inputFr) > int(g.KzgConfig.SRSNumberToLoad) {
 		return nil, nil, nil, nil, nil, fmt.Errorf("poly Coeff length %v is greater than Loaded SRS points %v", len(inputFr), int(g.KzgConfig.SRSNumberToLoad))
 	}
@@ -99,16 +97,17 @@ func (g *ParametrizedProver) Encode(inputFr []fr.Element) (*bn254.G1Affine, *bn2
 		return nil, nil, nil, nil, nil, commitmentResult.Error
 	}
 
-	totalProcessingTime := time.Since(encodeStart)
+	slog.Info("Encoding process details",
+		"Input_size_bytes", len(inputFr)*encoding.BYTES_PER_SYMBOL,
+		"Num_chunks", g.NumChunks,
+		"Chunk_length", g.ChunkLength,
+		"Total_duration", time.Since(encodeStart),
+	)
 
-	if g.Verbose {
-		log.Printf("Total encoding took      %v\n", totalProcessingTime)
-	}
 	return commitmentResult.commitment, commitmentResult.lengthCommitment, commitmentResult.lengthProof, frames, indices, nil
 }
 
 func (g *ParametrizedProver) GetCommitments(inputFr []fr.Element) (*bn254.G1Affine, *bn254.G2Affine, *bn254.G2Affine, error) {
-
 	if len(inputFr) > int(g.KzgConfig.SRSNumberToLoad) {
 		return nil, nil, nil, fmt.Errorf("poly Coeff length %v is greater than Loaded SRS points %v", len(inputFr), int(g.KzgConfig.SRSNumberToLoad))
 	}
@@ -160,25 +159,25 @@ func (g *ParametrizedProver) GetCommitments(inputFr []fr.Element) (*bn254.G1Affi
 	}
 	totalProcessingTime := time.Since(encodeStart)
 
-	log.Printf("\n\t\tCommiting     %-v\n\t\tLengthCommit  %-v\n\t\tlengthProof   %-v\n\t\tMetaInfo. order  %-v shift %v\n",
-		commitmentResult.Duration,
-		lengthCommitmentResult.Duration,
-		lengthProofResult.Duration,
-		g.SRSOrder,
-		g.SRSOrder-uint64(len(inputFr)),
+	slog.Info("Commitment process details",
+		"Input_size_bytes", len(inputFr)*encoding.BYTES_PER_SYMBOL,
+		"Total_duration", totalProcessingTime,
+		"Commiting_duration", commitmentResult.Duration,
+		"LengthCommit_duration", lengthCommitmentResult.Duration,
+		"lengthProof_duration", lengthProofResult.Duration,
+		"SRSOrder", g.SRSOrder,
+		"SRSOrder_shift", g.SRSOrder-uint64(len(inputFr)),
 	)
 
-	if g.Verbose {
-		log.Printf("Total encoding took      %v\n", totalProcessingTime)
-	}
 	return &commitmentResult.Commitment, &lengthCommitmentResult.LengthCommitment, &lengthProofResult.LengthProof, nil
 }
 
 func (g *ParametrizedProver) GetFrames(inputFr []fr.Element) ([]encoding.Frame, []uint32, error) {
-
 	if len(inputFr) > int(g.KzgConfig.SRSNumberToLoad) {
 		return nil, nil, fmt.Errorf("poly Coeff length %v is greater than Loaded SRS points %v", len(inputFr), int(g.KzgConfig.SRSNumberToLoad))
 	}
+
+	encodeStart := time.Now()
 
 	proofChan := make(chan proofsResult, 1)
 	rsChan := make(chan rsEncodeResult, 1)
@@ -223,17 +222,14 @@ func (g *ParametrizedProver) GetFrames(inputFr []fr.Element) ([]encoding.Frame, 
 	if rsResult.Err != nil || proofsResult.Err != nil {
 		return nil, nil, multierror.Append(rsResult.Err, proofsResult.Err)
 	}
-	totalProcessingTime := time.Since(encodeStart)
 
-	slog.Info("Encoding process details",
+	totalProcessingTime := time.Since(encodeStart)
+	slog.Info("Frame process details",
 		"Input_size_bytes", len(inputFr)*encoding.BYTES_PER_SYMBOL,
 		"Num_chunks", g.NumChunks,
 		"Chunk_length", g.ChunkLength,
 		"Total_duration", totalProcessingTime,
 		"RS_encode_duration", rsResult.Duration,
-		"Commiting_duration", commitmentResult.Duration,
-		"LengthCommit_duration", lengthCommitmentResult.Duration,
-		"lengthProof_duration", lengthProofResult.Duration,
 		"multiProof_duration", proofsResult.Duration,
 		"SRSOrder", g.SRSOrder,
 		"SRSOrder_shift", g.SRSOrder-uint64(len(inputFr)),
