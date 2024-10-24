@@ -26,8 +26,13 @@ type EncoderServer struct {
 	metrics *Metrics
 	close   func()
 
+	// General encoding request pool
 	runningRequests chan struct{}
 	requestPool     chan struct{}
+
+	// RS encoding request pool
+	rsRunningRequests chan struct{}
+	rsRequestPool     chan struct{}
 }
 
 func NewEncoderServer(config ServerConfig, logger logging.Logger, prover encoding.Prover, metrics *Metrics) *EncoderServer {
