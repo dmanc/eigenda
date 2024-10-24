@@ -19,6 +19,8 @@ import (
 
 type EncoderServer struct {
 	pb.UnimplementedEncoderServer
+	pb.UnimplementedRSEncoderServer
+	pb.UnimplementedKZGProverServer
 
 	config  ServerConfig
 	logger  logging.Logger
@@ -33,6 +35,10 @@ type EncoderServer struct {
 	// RS encoding request pool
 	rsRunningRequests chan struct{}
 	rsRequestPool     chan struct{}
+
+	// KZG encoding request pool
+	kzgRunningRequests chan struct{}
+	kzgRequestPool     chan struct{}
 }
 
 func NewEncoderServer(config ServerConfig, logger logging.Logger, prover encoding.Prover, metrics *Metrics) *EncoderServer {
@@ -101,7 +107,7 @@ func (s *EncoderServer) EncodeBlob(ctx context.Context, req *pb.EncodeBlobReques
 	}
 
 	s.metrics.ObserveLatency("queuing", time.Since(startTime))
-	reply, err := s.handleEncoding(ctx, req)
+	reply, err := s.handleEncoding(req)
 	if err != nil {
 		s.metrics.IncrementFailedBlobRequestNum(len(req.GetData()))
 	} else {
