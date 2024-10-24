@@ -23,6 +23,8 @@ import (
 
 type Server struct {
 	pb.UnimplementedEncoderServer
+	pb.UnimplementedRSEncoderServer
+	pb.UnimplementedKZGProverServer
 
 	config  ServerConfig
 	logger  logging.Logger
@@ -37,6 +39,10 @@ type Server struct {
 	// RS encoding request pool
 	rsRunningRequests chan struct{}
 	rsRequestPool     chan struct{}
+
+	// KZG encoding request pool
+	kzgRunningRequests chan struct{}
+	kzgRequestPool     chan struct{}
 }
 
 func NewServer(config ServerConfig, logger logging.Logger, prover encoding.Prover, metrics *Metrics) *Server {
@@ -51,6 +57,9 @@ func NewServer(config ServerConfig, logger logging.Logger, prover encoding.Prove
 
 		rsRunningRequests: make(chan struct{}, config.MaxConcurrentRequests),
 		rsRequestPool:     make(chan struct{}, config.RequestPoolSize),
+
+		kzgRunningRequests: make(chan struct{}, config.MaxConcurrentRequests),
+		kzgRequestPool:     make(chan struct{}, config.RequestPoolSize),
 	}
 }
 
@@ -72,7 +81,7 @@ func (s *Server) EncodeBlob(ctx context.Context, req *pb.EncodeBlobRequest) (*pb
 	}
 
 	s.metrics.ObserveLatency("queuing", time.Since(startTime))
-	reply, err := s.handleEncoding(ctx, req)
+	reply, err := s.handleEncoding(req)
 	if err != nil {
 		s.metrics.IncrementFailedBlobRequestNum(len(req.GetData()))
 	} else {
@@ -88,7 +97,7 @@ func (s *Server) popRequest() {
 	<-s.runningRequests
 }
 
-func (s *Server) handleEncoding(ctx context.Context, req *pb.EncodeBlobRequest) (*pb.EncodeBlobReply, error) {
+func (s *Server) handleEncoding(req *pb.EncodeBlobRequest) (*pb.EncodeBlobReply, error) {
 
 	begin := time.Now()
 
@@ -180,7 +189,11 @@ func (s *Server) Start() error {
 	opt := grpc.MaxRecvMsgSize(1024 * 1024 * 300) // 300 MiB
 	gs := grpc.NewServer(opt)
 	reflection.Register(gs)
+
+	// Register servers
 	pb.RegisterEncoderServer(gs, s)
+	pb.RegisterRSEncoderServer(gs, s)
+	pb.RegisterKZGProverServer(gs, s)
 
 	// Register Server for Health Checks
 	name := pb.Encoder_ServiceDesc.ServiceName
@@ -224,7 +237,7 @@ func (s *Server) RSEncodeBlob(ctx context.Context, req *pb.EncodeBlobRequest) (*
 	}
 
 	s.metrics.ObserveLatency("queuing", time.Since(startTime))
-	reply, err := s.handleRSEncoding(ctx, req)
+	reply, err := s.handleRSEncoding(req)
 	if err != nil {
 		s.metrics.IncrementFailedBlobRequestNum(len(req.GetData()))
 	} else {
@@ -235,7 +248,7 @@ func (s *Server) RSEncodeBlob(ctx context.Context, req *pb.EncodeBlobRequest) (*
 	return reply, err
 }
 
-func (s *Server) handleRSEncoding(ctx context.Context, req *pb.EncodeBlobRequest) (*pb.RSEncodeBlobReply, error) {
+func (s *Server) handleRSEncoding(req *pb.EncodeBlobRequest) (*pb.RSEncodeBlobReply, error) {
 	if len(req.Data) == 0 {
 		return nil, errors.New("handleRSEncoding: missing data")
 	}
@@ -292,4 +305,9 @@ func (s *Server) handleRSEncoding(ctx context.Context, req *pb.EncodeBlobRequest
 func (s *Server) popRSRequest() {
 	<-s.rsRequestPool
 	<-s.rsRunningRequests
+}
+
+func (s *Server) ComputeMultiFrameProof(ctx context.Context, req *pb.EncodeBlobRequest) (*pb.MultiProofReply, error) {
+	// not implemented
+	return nil, errors.New("not implemented")
 }
