@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"time"
 
@@ -12,12 +13,14 @@ import (
 	"github.com/Layr-Labs/eigenda/disperser"
 	pb "github.com/Layr-Labs/eigenda/disperser/api/grpc/encoder"
 	"github.com/Layr-Labs/eigenda/encoding"
+	"github.com/Layr-Labs/eigenda/encoding/fft"
+	"github.com/Layr-Labs/eigenda/encoding/rs"
+	"github.com/Layr-Labs/eigenda/encoding/rs/cpu"
 	"github.com/Layr-Labs/eigensdk-go/logging"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
-// TODO: Add EncodeMetrics
 type Server struct {
 	pb.UnimplementedEncoderServer
 
@@ -27,8 +30,13 @@ type Server struct {
 	metrics *Metrics
 	close   func()
 
+	// General encoding request pool
 	runningRequests chan struct{}
 	requestPool     chan struct{}
+
+	// RS encoding request pool
+	rsRunningRequests chan struct{}
+	rsRequestPool     chan struct{}
 }
 
 func NewServer(config ServerConfig, logger logging.Logger, prover encoding.Prover, metrics *Metrics) *Server {
@@ -40,6 +48,9 @@ func NewServer(config ServerConfig, logger logging.Logger, prover encoding.Prove
 
 		runningRequests: make(chan struct{}, config.MaxConcurrentRequests),
 		requestPool:     make(chan struct{}, config.RequestPoolSize),
+
+		rsRunningRequests: make(chan struct{}, config.MaxConcurrentRequests),
+		rsRequestPool:     make(chan struct{}, config.RequestPoolSize),
 	}
 }
 
@@ -192,4 +203,93 @@ func (s *Server) Close() {
 		return
 	}
 	s.close()
+}
+
+func (s *Server) RSEncodeBlob(ctx context.Context, req *pb.EncodeBlobRequest) (*pb.RSEncodeBlobReply, error) {
+	startTime := time.Now()
+
+	select {
+	case s.rsRequestPool <- struct{}{}:
+	default:
+		s.metrics.IncrementRateLimitedBlobRequestNum(len(req.GetData()))
+		s.logger.Warn("rate limiting as request pool is full", "requestPoolSize", s.config.RequestPoolSize, "maxConcurrentRequests", s.config.MaxConcurrentRequests)
+		return nil, errors.New("too many requests")
+	}
+	s.rsRunningRequests <- struct{}{}
+	defer s.popRSRequest()
+
+	if ctx.Err() != nil {
+		s.metrics.IncrementCanceledBlobRequestNum(len(req.GetData()))
+		return nil, ctx.Err()
+	}
+
+	s.metrics.ObserveLatency("queuing", time.Since(startTime))
+	reply, err := s.handleRSEncoding(ctx, req)
+	if err != nil {
+		s.metrics.IncrementFailedBlobRequestNum(len(req.GetData()))
+	} else {
+		s.metrics.IncrementSuccessfulBlobRequestNum(len(req.GetData()))
+	}
+	s.metrics.ObserveLatency("total", time.Since(startTime))
+
+	return reply, err
+}
+
+func (s *Server) handleRSEncoding(ctx context.Context, req *pb.EncodeBlobRequest) (*pb.RSEncodeBlobReply, error) {
+	if len(req.Data) == 0 {
+		return nil, errors.New("handleRSEncoding: missing data")
+	}
+
+	if req.EncodingParams == nil {
+		return nil, errors.New("handleRSEncoding: missing encoding parameters")
+	}
+
+	// Convert to core EncodingParams
+	var encodingParams = encoding.EncodingParams{
+		ChunkLength: uint64(req.GetEncodingParams().GetChunkLength()),
+		NumChunks:   uint64(req.GetEncodingParams().GetNumChunks()),
+	}
+
+	// Create RS Encoder
+	n := uint8(math.Log2(float64(encodingParams.NumEvaluations())))
+	fs := fft.NewFFTSettings(n)
+	RsComputeDevice := &cpu.RsCpuComputeDevice{
+		Fs: fs,
+	}
+
+	rs, err := rs.NewEncoder(encodingParams)
+	if err != nil {
+		return nil, err
+	}
+	rs.Computer = RsComputeDevice
+
+	// Reed-Solomon encode the data
+	frames, indices, err := rs.EncodeBytes(req.GetData())
+	if err != nil {
+		return nil, err
+	}
+
+	// Create response with frame data and indices
+	rsFrames := make([]*pb.RSEncodedFrame, len(frames))
+	for i, frame := range frames {
+		// Serialize the coefficients
+		coeffsData, err := frame.Serialize()
+		if err != nil {
+			return nil, err
+		}
+
+		rsFrames[i] = &pb.RSEncodedFrame{
+			Coeffs:           coeffsData,
+			BitReversedIndex: indices[i], // This is j = ReverseBits(i)
+		}
+	}
+
+	return &pb.RSEncodeBlobReply{
+		Frames: rsFrames,
+	}, nil
+}
+
+func (s *Server) popRSRequest() {
+	<-s.rsRequestPool
+	<-s.rsRunningRequests
 }

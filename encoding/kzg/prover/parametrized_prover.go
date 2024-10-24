@@ -62,6 +62,7 @@ func (g *ParametrizedProver) EncodeBytes(inputBytes []byte) (*bn254.G1Affine, *b
 	if err != nil {
 		return nil, nil, nil, nil, nil, fmt.Errorf("cannot convert bytes to field elements, %w", err)
 	}
+
 	return g.Encode(inputFr)
 }
 
