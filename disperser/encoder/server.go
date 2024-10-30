@@ -3,24 +3,19 @@ package encoder
 import (
 	"context"
 	"errors"
-	"fmt"
-	"log"
-	"net"
 	"time"
 
-	"github.com/Layr-Labs/eigenda/common/healthcheck"
-	"github.com/Layr-Labs/eigenda/disperser"
 	pb "github.com/Layr-Labs/eigenda/disperser/api/grpc/encoder"
 	"github.com/Layr-Labs/eigenda/encoding"
 	"github.com/Layr-Labs/eigensdk-go/logging"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 type EncoderServer struct {
 	pb.UnimplementedEncoderServer
 	pb.UnimplementedRSEncoderServer
 	pb.UnimplementedKZGProverServer
+
+	GPUEnabled bool
 
 	config  ServerConfig
 	logger  logging.Logger
@@ -50,43 +45,13 @@ func NewEncoderServer(config ServerConfig, logger logging.Logger, prover encodin
 
 		runningRequests: make(chan struct{}, config.MaxConcurrentRequests),
 		requestPool:     make(chan struct{}, config.RequestPoolSize),
+
+		rsRunningRequests: make(chan struct{}, config.MaxConcurrentRequests),
+		rsRequestPool:     make(chan struct{}, config.RequestPoolSize),
+
+		kzgRunningRequests: make(chan struct{}, config.MaxConcurrentRequests),
+		kzgRequestPool:     make(chan struct{}, config.RequestPoolSize),
 	}
-}
-
-func (s *EncoderServer) Start() error {
-	// Serve grpc requests
-	addr := fmt.Sprintf("%s:%s", disperser.Localhost, s.config.GrpcPort)
-	listener, err := net.Listen("tcp", addr)
-	if err != nil {
-		log.Fatalf("Could not start tcp listener: %v", err)
-	}
-
-	opt := grpc.MaxRecvMsgSize(1024 * 1024 * 300) // 300 MiB
-	gs := grpc.NewServer(opt)
-	reflection.Register(gs)
-	pb.RegisterEncoderServer(gs, s)
-
-	// Register Server for Health Checks
-	name := pb.Encoder_ServiceDesc.ServiceName
-	healthcheck.RegisterHealthServer(name, gs)
-
-	s.close = func() {
-		err := listener.Close()
-		if err != nil {
-			log.Printf("failed to close listener: %v", err)
-		}
-		gs.GracefulStop()
-	}
-
-	s.logger.Info("port", s.config.GrpcPort, "address", listener.Addr().String(), "GRPC Listening")
-	return gs.Serve(listener)
-}
-
-func (s *EncoderServer) Close() {
-	if s.close == nil {
-		return
-	}
-	s.close()
 }
 
 func (s *EncoderServer) EncodeBlob(ctx context.Context, req *pb.EncodeBlobRequest) (*pb.EncodeBlobReply, error) {
@@ -164,7 +129,6 @@ func (s *EncoderServer) handleEncoding(ctx context.Context, req *pb.EncodeBlobRe
 	}
 
 	var chunksData [][]byte
-
 	var format pb.ChunkEncodingFormat
 	if s.config.EnableGnarkChunkEncoding {
 		format = pb.ChunkEncodingFormat_GNARK

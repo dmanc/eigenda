@@ -57,10 +57,16 @@ func NewConfig(ctx *cli.Context) (Config, error) {
 			MaxConcurrentRequests:    ctx.GlobalInt(flags.MaxConcurrentRequestsFlag.Name),
 			RequestPoolSize:          ctx.GlobalInt(flags.RequestPoolSizeFlag.Name),
 			EnableGnarkChunkEncoding: ctx.Bool(flags.EnableGnarkChunkEncodingFlag.Name),
+			EnableKzg:                ctx.Bool(flags.EnableKzgFlag.Name),
+			EnableRs:                 ctx.Bool(flags.EnableRsFlag.Name),
 		},
-		MetricsConfig: encoder.MetrisConfig{
+		MetricsConfig: encoder.MetricsConfig{
 			HTTPPort:      ctx.GlobalString(flags.MetricsHTTPPort.Name),
 			EnableMetrics: ctx.GlobalBool(flags.EnableMetrics.Name),
+		},
+		PprofConfig: encoder.PprofConfig{
+			HTTPPort:    ctx.GlobalString(flags.PprofHTTPPort.Name),
+			EnablePprof: ctx.GlobalBool(flags.EnablePprof.Name),
 		},
 	}
 	return config, nil
