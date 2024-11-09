@@ -13,6 +13,7 @@ services:
       dockerfile: disperser/cmd/encoder/Dockerfile
     image: ghcr.io/layr-labs/eigenda/encoder:${BUILD_TAG:-latest}
     environment:
+      - DISPERSER_ENCODER_AWS_REGION=us-east-1
       - DISPERSER_ENCODER_CACHE_ENCODED_BLOBS=true
       - DISPERSER_ENCODER_CACHE_PATH=/resources/kzg/SRSTables
       - DISPERSER_ENCODER_ENABLE_METRICS=true
