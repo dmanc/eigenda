@@ -7,62 +7,27 @@ volumes:
   grafana_data: {}
 
 services:
-  encoder:
-    build:
-      context: .
-      dockerfile: disperser/cmd/encoder/Dockerfile
-    image: ghcr.io/layr-labs/eigenda/encoder:${BUILD_TAG:-latest}
-    environment:
-      - DISPERSER_ENCODER_AWS_REGION=us-east-1
-      - DISPERSER_ENCODER_CACHE_ENCODED_BLOBS=true
-      - DISPERSER_ENCODER_CACHE_PATH=/resources/kzg/SRSTables
-      - DISPERSER_ENCODER_ENABLE_METRICS=true
-      - DISPERSER_ENCODER_ENABLE_KZG=false
-      - DISPERSER_ENCODER_ENABLE_RS=true
-      - DISPERSER_ENCODER_G1_PATH=/resources/kzg/g1.point
-      - DISPERSER_ENCODER_G2_PATH=/resources/kzg/g2.point
-      - DISPERSER_ENCODER_GRPC_PORT=34000
-      - DISPERSER_ENCODER_LOG_FORMAT=json
-      - DISPERSER_ENCODER_LOG_LEVEL=debug
-      - DISPERSER_ENCODER_MAX_CONCURRENT_REQUESTS=1
-      - DISPERSER_ENCODER_METRICS_HTTP_PORT=9094
-      - DISPERSER_ENCODER_REQUEST_POOL_SIZE=1024
-      - DISPERSER_ENCODER_SRS_LOAD=1048576
-      - DISPERSER_ENCODER_SRS_ORDER=268435456
-      - DISPERSER_ENCODER_VERBOSE=true
-      - DISPERSER_ENCODER_ENABLE_PPROF=true
-      - DISPERSER_ENCODER_PPROF_HTTP_PORT=6060
-    volumes:
-      - /home/ubuntu/resources/kzg:/resources/kzg
-    ports:
-      - "34000:34000"
-      - "9094:9094"
-      - "6060:6060"
-    networks:
-        - monitoring
-
-  # encoder_gpu:
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             count: 1 # alternatively, use `count: all` for all GPUs
-  #             capabilities: [gpu]
+  # encoder:
   #   build:
   #     context: .
   #     dockerfile: disperser/cmd/encoder/Dockerfile
-  #   image: gpu-test:${BUILD_TAG:-latest}
+  #   image: ghcr.io/layr-labs/eigenda/encoder:${BUILD_TAG:-latest}
   #   environment:
+  #     - DISPERSER_ENCODER_AWS_REGION=us-east-1
+  #     - DISPERSER_ENCODER_ENCODER_VERSION=2
+  #     - DISPERSER_ENCODER_S3_BUCKET_NAME=eigenda-blobstore
   #     - DISPERSER_ENCODER_CACHE_ENCODED_BLOBS=true
   #     - DISPERSER_ENCODER_CACHE_PATH=/resources/kzg/SRSTables
   #     - DISPERSER_ENCODER_ENABLE_METRICS=true
+  #     - DISPERSER_ENCODER_ENABLE_KZG=false
+  #     - DISPERSER_ENCODER_ENABLE_RS=true
   #     - DISPERSER_ENCODER_G1_PATH=/resources/kzg/g1.point
   #     - DISPERSER_ENCODER_G2_PATH=/resources/kzg/g2.point
+  #     - DISPERSER_ENCODER_G2_POWER_OF_2_PATH=/resources/kzg/g2_power_of_2.point
   #     - DISPERSER_ENCODER_GRPC_PORT=34000
   #     - DISPERSER_ENCODER_LOG_FORMAT=json
-  #     - DISPERSER_ENCODER_LOG_LEVEL=info
-  #     - DISPERSER_ENCODER_MAX_CONCURRENT_REQUESTS=16
+  #     - DISPERSER_ENCODER_LOG_LEVEL=debug
+  #     - DISPERSER_ENCODER_MAX_CONCURRENT_REQUESTS=1
   #     - DISPERSER_ENCODER_METRICS_HTTP_PORT=9094
   #     - DISPERSER_ENCODER_REQUEST_POOL_SIZE=1024
   #     - DISPERSER_ENCODER_SRS_LOAD=1048576
@@ -72,12 +37,58 @@ services:
   #     - DISPERSER_ENCODER_PPROF_HTTP_PORT=6060
   #   volumes:
   #     - /home/ubuntu/resources/kzg:/resources/kzg
+  #     - ~/.aws:/root/.aws:ro
   #   ports:
   #     - "34000:34000"
   #     - "9094:9094"
   #     - "6060:6060"
   #   networks:
   #       - monitoring
+    
+  encoder_gpu:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1 # alternatively, use `count: all` for all GPUs
+              capabilities: [gpu]
+    build:
+      context: .
+      dockerfile: disperser/cmd/encoder/gpu.Dockerfile
+    image: ghcr.io/layr-labs/eigenda/encoder-gpu:${BUILD_TAG:-latest}
+    environment:
+      - DISPERSER_ENCODER_AWS_REGION=us-east-1
+      - DISPERSER_ENCODER_ENCODER_VERSION=2
+      - DISPERSER_ENCODER_S3_BUCKET_NAME=eigenda-blobstore
+      - DISPERSER_ENCODER_CACHE_ENCODED_BLOBS=true
+      - DISPERSER_ENCODER_CACHE_PATH=/resources/kzg/SRSTables
+      - DISPERSER_ENCODER_ENABLE_METRICS=true
+      - DISPERSER_ENCODER_ENABLE_KZG=false
+      - DISPERSER_ENCODER_ENABLE_RS=true
+      - DISPERSER_ENCODER_G1_PATH=/resources/kzg/g1.point
+      - DISPERSER_ENCODER_G2_PATH=/resources/kzg/g2.point
+      - DISPERSER_ENCODER_G2_POWER_OF_2_PATH=/resources/kzg/g2_power_of_2.point
+      - DISPERSER_ENCODER_GRPC_PORT=34001
+      - DISPERSER_ENCODER_LOG_FORMAT=json
+      - DISPERSER_ENCODER_LOG_LEVEL=debug
+      - DISPERSER_ENCODER_MAX_CONCURRENT_REQUESTS=16
+      - DISPERSER_ENCODER_METRICS_HTTP_PORT=9095
+      - DISPERSER_ENCODER_REQUEST_POOL_SIZE=1024
+      - DISPERSER_ENCODER_SRS_LOAD=1048576
+      - DISPERSER_ENCODER_SRS_ORDER=268435456
+      - DISPERSER_ENCODER_VERBOSE=true
+      - DISPERSER_ENCODER_ENABLE_PPROF=true
+      - DISPERSER_ENCODER_PPROF_HTTP_PORT=6061
+    volumes:
+      - /home/ubuntu/resources/kzg:/resources/kzg
+      - ~/.aws:/root/.aws:ro
+    ports:
+      - "34001:34001"
+      - "9095:9095"
+      - "6061:6061"
+    networks:
+        - monitoring
 
   node-exporter:
     image: prom/node-exporter:latest
