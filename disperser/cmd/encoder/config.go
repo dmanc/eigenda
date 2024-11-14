@@ -60,6 +60,8 @@ func NewConfig(ctx *cli.Context) (Config, error) {
 			EnableGnarkChunkEncoding: ctx.Bool(flags.EnableGnarkChunkEncodingFlag.Name),
 			EnableKzg:                ctx.Bool(flags.EnableKzgFlag.Name),
 			EnableRs:                 ctx.Bool(flags.EnableRsFlag.Name),
+			Backend:                  ctx.String(flags.BackendFlag.Name),
+			EnableGPU:                ctx.Bool(flags.EnableGPUFlag.Name),
 		},
 		MetricsConfig: encoder.MetricsConfig{
 			HTTPPort:      ctx.GlobalString(flags.MetricsHTTPPort.Name),

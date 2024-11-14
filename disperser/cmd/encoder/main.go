@@ -11,6 +11,7 @@ import (
 	"github.com/Layr-Labs/eigenda/disperser/cmd/encoder/flags"
 	blobstorev2 "github.com/Layr-Labs/eigenda/disperser/common/v2/blobstore"
 	"github.com/Layr-Labs/eigenda/disperser/encoder"
+	"github.com/Layr-Labs/eigenda/encoding"
 	"github.com/Layr-Labs/eigenda/encoding/kzg/prover"
 	"github.com/Layr-Labs/eigenda/relay/chunkstore"
 	"github.com/urfave/cli"
@@ -104,9 +105,16 @@ func RunEncoderServer(ctx *cli.Context) error {
 		return server.Start()
 	}
 
+	backendType, err := encoding.ParseBackendType(config.ServerConfig.Backend)
+	if err != nil {
+		return err
+	}
+
 	opts := []prover.ProverOption{
 		prover.WithKZGConfig(&config.EncoderConfig),
 		prover.WithLoadG2Points(true),
+		prover.WithBackend(backendType),
+		prover.WithGPU(config.ServerConfig.EnableGPU),
 	}
 	prover, err := prover.NewProver(opts...)
 	if err != nil {

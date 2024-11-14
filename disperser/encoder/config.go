@@ -11,4 +11,6 @@ type ServerConfig struct {
 	EnableGnarkChunkEncoding bool
 	EnableKzg                bool
 	EnableRs                 bool
+	Backend                  string
+	EnableGPU                bool
 }
