@@ -13,6 +13,7 @@ import (
 	"github.com/Layr-Labs/eigenda/disperser/encoder"
 	"github.com/Layr-Labs/eigenda/encoding"
 	"github.com/Layr-Labs/eigenda/encoding/kzg/prover"
+	"github.com/Layr-Labs/eigenda/encoding/rs"
 	"github.com/Layr-Labs/eigenda/relay/chunkstore"
 	"github.com/urfave/cli"
 )
@@ -70,14 +71,25 @@ func RunEncoderServer(ctx *cli.Context) error {
 	}
 
 	if config.EncoderVersion == V2 {
+		// Create the encoder
+		opts := []rs.EncoderOption{
+			rs.WithBackend(backendType),
+			rs.WithGPU(config.ServerConfig.EnableGPU),
+		}
+		rsEncoder, err := rs.NewEncoder(opts...)
+		if err != nil {
+			return fmt.Errorf("failed to create encoder: %w", err)
+		}
+
 		// We no longer compute the commitments in the encoder, so we don't need to load the G2 points
-		opts := []prover.ProverOption{
+		popts := []prover.ProverOption{
 			prover.WithKZGConfig(&config.EncoderConfig),
 			prover.WithLoadG2Points(false),
 			prover.WithBackend(backendType),
 			prover.WithGPU(config.ServerConfig.EnableGPU),
+			prover.WithRSEncoder(rsEncoder),
 		}
-		prover, err := prover.NewProver(opts...)
+		prover, err := prover.NewProver(popts...)
 		if err != nil {
 			return fmt.Errorf("failed to create encoder: %w", err)
 		}
