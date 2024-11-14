@@ -26,7 +26,6 @@ type EncoderServer struct {
 	metrics *Metrics
 	close   func()
 
-	// General encoding request pool
 	runningRequests chan struct{}
 	requestPool     chan struct{}
 }
