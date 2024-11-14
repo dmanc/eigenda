@@ -10,5 +10,5 @@ type ServerConfig struct {
 	RequestPoolSize          int
 	EnableGnarkChunkEncoding bool
 	Backend                  string
-	EnableGPU                bool
+	GPUEnable                bool
 }
