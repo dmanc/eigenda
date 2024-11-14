@@ -29,7 +29,6 @@ type Config struct {
 	LoggerConfig     common.LoggerConfig
 	ServerConfig     *encoder.ServerConfig
 	MetricsConfig    encoder.MetricsConfig
-	PprofConfig      encoder.PprofConfig
 }
 
 func NewConfig(ctx *cli.Context) (Config, error) {
@@ -58,18 +57,12 @@ func NewConfig(ctx *cli.Context) (Config, error) {
 			MaxConcurrentRequests:    ctx.GlobalInt(flags.MaxConcurrentRequestsFlag.Name),
 			RequestPoolSize:          ctx.GlobalInt(flags.RequestPoolSizeFlag.Name),
 			EnableGnarkChunkEncoding: ctx.Bool(flags.EnableGnarkChunkEncodingFlag.Name),
-			EnableKzg:                ctx.Bool(flags.EnableKzgFlag.Name),
-			EnableRs:                 ctx.Bool(flags.EnableRsFlag.Name),
 			Backend:                  ctx.String(flags.BackendFlag.Name),
 			EnableGPU:                ctx.Bool(flags.EnableGPUFlag.Name),
 		},
 		MetricsConfig: encoder.MetricsConfig{
 			HTTPPort:      ctx.GlobalString(flags.MetricsHTTPPort.Name),
 			EnableMetrics: ctx.GlobalBool(flags.EnableMetrics.Name),
-		},
-		PprofConfig: encoder.PprofConfig{
-			HTTPPort:    ctx.GlobalString(flags.PprofHTTPPort.Name),
-			EnablePprof: ctx.GlobalBool(flags.EnablePprof.Name),
 		},
 	}
 	return config, nil

@@ -19,10 +19,6 @@ import (
 
 type EncoderServer struct {
 	pb.UnimplementedEncoderServer
-	pb.UnimplementedRSEncoderServer
-	pb.UnimplementedKZGProverServer
-
-	GPUEnabled bool
 
 	config  ServerConfig
 	logger  logging.Logger
@@ -33,14 +29,6 @@ type EncoderServer struct {
 	// General encoding request pool
 	runningRequests chan struct{}
 	requestPool     chan struct{}
-
-	// RS encoding request pool
-	rsRunningRequests chan struct{}
-	rsRequestPool     chan struct{}
-
-	// KZG encoding request pool
-	kzgRunningRequests chan struct{}
-	kzgRequestPool     chan struct{}
 }
 
 func NewEncoderServer(config ServerConfig, logger logging.Logger, prover encoding.Prover, metrics *Metrics) *EncoderServer {
@@ -52,12 +40,6 @@ func NewEncoderServer(config ServerConfig, logger logging.Logger, prover encodin
 
 		runningRequests: make(chan struct{}, config.MaxConcurrentRequests),
 		requestPool:     make(chan struct{}, config.RequestPoolSize),
-
-		rsRunningRequests: make(chan struct{}, config.MaxConcurrentRequests),
-		rsRequestPool:     make(chan struct{}, config.RequestPoolSize),
-
-		kzgRunningRequests: make(chan struct{}, config.MaxConcurrentRequests),
-		kzgRequestPool:     make(chan struct{}, config.RequestPoolSize),
 	}
 }
 
@@ -198,4 +180,11 @@ func (s *EncoderServer) handleEncoding(ctx context.Context, req *pb.EncodeBlobRe
 		Chunks:              chunksData,
 		ChunkEncodingFormat: format,
 	}, nil
+}
+
+func (s *EncoderServer) Close() {
+	if s.close == nil {
+		return
+	}
+	s.close()
 }
