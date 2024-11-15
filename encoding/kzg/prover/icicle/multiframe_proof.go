@@ -22,8 +22,7 @@ import (
 type KzgMultiProofIcicleBackend struct {
 	*kzg.KzgConfig
 	Fs             *fft.FFTSettings
-	FlatFFTPointsT []icicle_bn254.Affine
-	SRSIcicle      []icicle_bn254.Affine
+	FlatFFTPointsT core.HostOrDeviceSlice
 	SFs            *fft.FFTSettings
 	Srs            *kzg.SRS
 	NttCfg         core.NTTConfig[[icicle_bn254.SCALAR_LIMBS]uint32]
@@ -109,9 +108,7 @@ func (p *KzgMultiProofIcicleBackend) ComputeMultiFrameProof(polyFr []fr.Element,
 
 		msmDone = time.Now()
 
-		// Compute the first ecntt, and set new batch size for ntt
-		p.NttCfg.BatchSize = int32(numPoly)
-		sumVecInv, err := p.ECNttOnDevice(sumVec, true, int(dimE)*2*int(numPoly))
+		sumVecInv, err := p.ECNttOnDevice(sumVec, true, int(dimE)*2)
 		if err != nil {
 			icicleErr = fmt.Errorf("first ECNtt error: %w", err)
 		}

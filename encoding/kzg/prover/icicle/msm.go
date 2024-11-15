@@ -13,8 +13,8 @@ import (
 
 // MsmBatchOnDevice function supports batch across blobs.
 // totalSize is the number of output points, which equals to numPoly * 2 * dimE , dimE is number of chunks
-func (c *KzgMultiProofIcicleBackend) MsmBatchOnDevice(rowsFrIcicleCopy core.DeviceSlice, rowsG1Icicle []icicle_bn254.Affine, totalSize int) (core.DeviceSlice, error) {
-	rowsG1IcicleCopy := core.HostSliceFromElements[icicle_bn254.Affine](rowsG1Icicle)
+func (c *KzgMultiProofIcicleBackend) MsmBatchOnDevice(rowsFrIcicleCopy core.DeviceSlice, rowsG1Icicle core.HostOrDeviceSlice, totalSize int) (core.DeviceSlice, error) {
+	// rowsG1IcicleCopy := core.HostSliceFromElements[icicle_bn254.Affine](rowsG1Icicle)
 
 	var p icicle_bn254.Projective
 	var out core.DeviceSlice
@@ -25,7 +25,7 @@ func (c *KzgMultiProofIcicleBackend) MsmBatchOnDevice(rowsFrIcicleCopy core.Devi
 		return out, fmt.Errorf("%v", "Allocating bytes on device for Projective results failed")
 	}
 
-	err = msm.Msm(rowsFrIcicleCopy, rowsG1IcicleCopy, &c.MsmCfg, out)
+	err = msm.Msm(rowsFrIcicleCopy, rowsG1Icicle, &c.MsmCfg, out)
 	if err != runtime.Success {
 		return out, fmt.Errorf("%v", "Msm failed")
 	}

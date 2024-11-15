@@ -22,7 +22,6 @@ func CreateIcicleBackendProver(p *Prover, params encoding.EncodingParams, fs *ff
 		GPUEnable:  p.Config.GPUEnable,
 		NTTSize:    defaultNTTSize,
 		FFTPointsT: fftPointsT,
-		SRSG1:      p.Srs.G1[:p.KzgConfig.SRSNumberToLoad],
 	})
 	if err != nil {
 		return nil, err
@@ -36,7 +35,6 @@ func CreateIcicleBackendProver(p *Prover, params encoding.EncodingParams, fs *ff
 	multiproofBackend := &prover_icicle.KzgMultiProofIcicleBackend{
 		Fs:             fs,
 		FlatFFTPointsT: icicleDevice.FlatFFTPointsT,
-		SRSIcicle:      icicleDevice.SRSG1Icicle,
 		SFs:            sfs,
 		Srs:            p.Srs,
 		NttCfg:         icicleDevice.NttCfg,

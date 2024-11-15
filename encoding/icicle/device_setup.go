@@ -18,7 +18,7 @@ type IcicleDevice struct {
 	Device         icicle_runtime.Device
 	NttCfg         core.NTTConfig[[icicle_bn254.SCALAR_LIMBS]uint32]
 	MsmCfg         core.MSMConfig
-	FlatFFTPointsT []icicle_bn254.Affine
+	FlatFFTPointsT core.HostOrDeviceSlice
 	SRSG1Icicle    []icicle_bn254.Affine
 }
 
@@ -34,7 +34,6 @@ type IcicleDeviceConfig struct {
 
 	// MSM setup parameters (optional)
 	FFTPointsT [][]bn254.G1Affine
-	SRSG1      []bn254.G1Affine
 }
 
 // NewIcicleDevice creates and initializes a new IcicleDevice
@@ -48,7 +47,7 @@ func NewIcicleDevice(config IcicleDeviceConfig) (*IcicleDevice, error) {
 	var (
 		nttCfg         core.NTTConfig[[icicle_bn254.SCALAR_LIMBS]uint32]
 		msmCfg         core.MSMConfig
-		flatFftPointsT []icicle_bn254.Affine
+		flatFftPointsT core.HostOrDeviceSlice
 		srsG1Icicle    []icicle_bn254.Affine
 		setupErr       error
 		icicleErr      icicle_runtime.EIcicleError
@@ -66,11 +65,8 @@ func NewIcicleDevice(config IcicleDeviceConfig) (*IcicleDevice, error) {
 		}
 
 		// Setup MSM if parameters are provided
-		if config.FFTPointsT != nil && config.SRSG1 != nil {
-			flatFftPointsT, srsG1Icicle, msmCfg, icicleErr = SetupMsmG1(
-				config.FFTPointsT,
-				config.SRSG1,
-			)
+		if config.FFTPointsT != nil {
+			flatFftPointsT, msmCfg, icicleErr = SetupMsmG1(config.FFTPointsT)
 			if icicleErr != icicle_runtime.Success {
 				setupErr = fmt.Errorf("could not setup MSM: %v", icicleErr.AsString())
 				return
