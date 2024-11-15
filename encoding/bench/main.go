@@ -71,22 +71,38 @@ func main() {
 
 	fmt.Printf("* Task Starts\n")
 
-	// create encoding object
+	// create default prover and encoder
 	rs_opts := []rs.EncoderOption{
-		rs.WithBackend(encoding.BackendIcicle),
-		rs.WithGPU(true),
+		rs.WithBackend(encoding.BackendDefault),
+		rs.WithGPU(false),
 	}
-	rsEncoder, _ := rs.NewEncoder(rs_opts...)
+	defaultRsEncoder, _ := rs.NewEncoder(rs_opts...)
 
-	prover_opts := []prover.ProverOption{
+	default_prover_opts := []prover.ProverOption{
 		prover.WithKZGConfig(kzgConfig),
 		prover.WithLoadG2Points(true),
 		prover.WithVerbose(true),
+		prover.WithBackend(encoding.BackendDefault),
+		prover.WithGPU(false),
+		prover.WithRSEncoder(defaultRsEncoder),
+	}
+	p, err := prover.NewProver(default_prover_opts...)
+
+	// Create icicle prover
+	icicle_rs_opts := []rs.EncoderOption{
+		rs.WithBackend(encoding.BackendIcicle),
+		rs.WithGPU(true),
+	}
+	icicleRsEncoder, _ := rs.NewEncoder(icicle_rs_opts...)
+
+	icicle_prover_opts := []prover.ProverOption{
+		prover.WithKZGConfig(kzgConfig),
+		prover.WithLoadG2Points(true),
 		prover.WithBackend(encoding.BackendIcicle),
 		prover.WithGPU(true),
-		prover.WithRSEncoder(rsEncoder),
+		prover.WithRSEncoder(icicleRsEncoder),
 	}
-	p, err := prover.NewProver(prover_opts...)
+	icicle_p, err := prover.NewProver(icicle_prover_opts...)
 
 	if err != nil {
 		log.Fatalf("Failed to create prover: %v", err)
@@ -104,7 +120,7 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	results := runBenchmark(p, &config)
+	results := runBenchmark(p, icicle_p, &config)
 	if config.MemProfile != "" {
 		f, err := os.Create(config.MemProfile)
 		if err != nil {
@@ -131,7 +147,7 @@ func main() {
 	fmt.Printf("Benchmark results written to %s\n", config.OutputFile)
 }
 
-func runBenchmark(p *prover.Prover, config *Config) []BenchmarkResult {
+func runBenchmark(p *prover.Prover, icicle_p *prover.Prover, config *Config) []BenchmarkResult {
 	var results []BenchmarkResult
 
 	// Fixed coding ratio of 8
@@ -142,13 +158,13 @@ func runBenchmark(p *prover.Prover, config *Config) []BenchmarkResult {
 		if chunkLen < 1 {
 			continue // Skip invalid configurations
 		}
-		result := benchmarkEncodeAndVerify(p, blobLength, config.NumChunks, chunkLen, config.EnableVerify)
+		result := benchmarkEncodeAndVerify(p, icicle_p, blobLength, config.NumChunks, chunkLen, config.EnableVerify)
 		results = append(results, result)
 	}
 	return results
 }
 
-func benchmarkEncodeAndVerify(p *prover.Prover, blobLength uint64, numChunks uint64, chunkLen uint64, verifyResults bool) BenchmarkResult {
+func benchmarkEncodeAndVerify(p *prover.Prover, icicle_p *prover.Prover, blobLength uint64, numChunks uint64, chunkLen uint64, verifyResults bool) BenchmarkResult {
 	params := encoding.EncodingParams{
 		NumChunks:   numChunks,
 		ChunkLength: chunkLen,
@@ -157,6 +173,11 @@ func benchmarkEncodeAndVerify(p *prover.Prover, blobLength uint64, numChunks uin
 	fmt.Printf("Running benchmark: numChunks=%d, chunkLen=%d, blobLength=%d\n", params.NumChunks, params.ChunkLength, blobLength)
 
 	enc, err := p.GetKzgEncoder(params)
+	if err != nil {
+		log.Fatalf("Failed to get KZG encoder: %v", err)
+	}
+
+	icicle_enc, err := icicle_p.GetKzgEncoder(params)
 	if err != nil {
 		log.Fatalf("Failed to get KZG encoder: %v", err)
 	}
@@ -174,6 +195,46 @@ func benchmarkEncodeAndVerify(p *prover.Prover, blobLength uint64, numChunks uin
 		log.Fatal(err)
 	}
 	duration := time.Since(start)
+
+	// Icicle computation
+	icicleStart := time.Now()
+	icicleCommit, _, _, icicleFrames, icicleFIndices, err := icicle_enc.Encode(inputFr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	icicleDuration := time.Since(icicleStart)
+	log.Println("Icicle encoding time:", icicleDuration)
+
+	// Verify that p and icicle are the same
+	if len(frames) != len(icicleFrames) {
+		log.Fatalf("Frame length mismatch: %d != %d", len(frames), len(icicleFrames))
+	}
+
+	for i := 0; i < len(frames); i++ {
+		if len(frames[i].Coeffs) != len(icicleFrames[i].Coeffs) {
+			log.Fatalf("Frame %d length mismatch: %d != %d", i, len(frames[i].Coeffs), len(icicleFrames[i].Coeffs))
+		}
+
+		for j := 0; j < len(frames[i].Coeffs); j++ {
+			if frames[i].Coeffs[j] != icicleFrames[i].Coeffs[j] {
+				log.Fatalf("Frame %d coeff %d mismatch: %v != %v", i, j, frames[i].Coeffs[j], icicleFrames[i].Coeffs[j])
+			}
+
+			if frames[i].Proof != icicleFrames[i].Proof {
+				log.Fatalf("Frame %d proof mismatch: %v != %v", i, frames[i].Proof, icicleFrames[i].Proof)
+			}
+
+			if fIndices[i] != icicleFIndices[i] {
+				log.Fatalf("Frame %d index mismatch: %d != %d", i, fIndices[i], icicleFIndices[i])
+			}
+		}
+	}
+
+	if commit.X != icicleCommit.X || commit.Y != icicleCommit.Y {
+		log.Fatalf("Commitment mismatch: %v != %v", commit, icicleCommit)
+	}
+
+	log.Println("default and icicle results match")
 
 	verifyResult := true
 	verifyStart := time.Now()
