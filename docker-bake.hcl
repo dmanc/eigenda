@@ -320,7 +320,7 @@ target "nodeplugin" {
 
 # PUBLIC RELEASE TARGETS
 target "_release" {
-  platforms = ["linux/amd64", "linux/arm64"]
+  platforms = ["linux/amd64"]
 }
 
 group "node-group-release" {
