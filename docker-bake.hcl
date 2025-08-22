@@ -4,7 +4,7 @@ variable "REGISTRY" {
 }
 
 variable "REPO" {
-  default = "layr-labs/eigenda"
+  default = "dmanc/eigenda"
 }
 
 # We use the `dev` tag for local development builds.
@@ -275,9 +275,9 @@ target "proxy" {
   context    = "."
   dockerfile = "./Dockerfile"
   target     = "proxy"
-  # We push to layr-labs/ directly instead of layr-labs/eigenda/ for historical reasons,
+  # We push to dmanc/ directly instead of dmanc/eigenda/ for historical reasons,
   # since proxy was previously in its own repo: https://github.com/Layr-Labs/eigenda-proxy
-  tags       = ["${REGISTRY}/layr-labs/eigenda-proxy:${BUILD_TAG}"]
+  tags       = ["${REGISTRY}/dmanc/eigenda-proxy:${BUILD_TAG}"]
 }
 
 target "proxy-internal" {
